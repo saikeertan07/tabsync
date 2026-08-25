@@ -1,0 +1,57 @@
+# Operating System & Environment
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon\r\r
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node Dependencies & Logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json.bak
+.env
+.env.local
+.env.*.local
+
+# macOS Native Binaries & Build Outputs
+TabSyncStudio
+mac-input
+*.dSYM/
+build/
+DerivedData/
+*.app/
+
+# TabSync Runtime State & Credentials
+security/paired_devices.json
+security/paired_devices.json.bak
+security/*.pem
+security/*.key
+host_cert.pem
+host_key.pem
+*.log
+*.pid
+
+# Android Build & Local User Configurations
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/*.keystore
+android/*.jks
+android/keystore.properties
+.idea/
+*.iml
+.gradle/
+
+# Distribution Packages & Release Outputs
+*.apk
+*.aab
+*.zip
+public/download/TabSyncStudio.apk
+classes.dex
