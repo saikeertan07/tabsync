@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>TabSync Studio - Drawing Pad</title>
+  <link rel="manifest" href="/tablet/manifest.json">
+  <meta name="theme-color" content="#090d14">
+  <link rel="stylesheet" href="/tablet/style.css">
+</head>
+<body>
+  <div id="pad-app">
+    <!-- Floating Studio Toolbar -->
+    <header id="pad-toolbar">
+      <div class="toolbar-left">
+        <div class="brand-pill">
+          <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+          <span class="brand-text">TabSync</span>
+        </div>
+
+        <!-- Mode Segmented Control -->
+        <div class="tool-segmented">
+          <button id="tab-draw" class="tool-pill active" title="Pen (Vector Inking)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
+              <path d="m15 5 4 4"></path>
+            </svg>
+            <span>Pen</span>
+          </button>
+
+          <button id="tab-highlighter" class="tool-pill" title="Highlighter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 11-6 6v3h3l6-6"></path>
+              <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"></path>
+            </svg>
+            <span>Marker</span>
+          </button>
+
+          <button id="tab-laser" class="tool-pill" title="Laser Pointer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="12" y1="2" x2="12" y2="6"></line>
+              <line x1="12" y1="18" x2="12" y2="22"></line>
+              <line x1="2" y1="12" x2="6" y2="12"></line>
+              <line x1="18" y1="12" x2="22" y2="12"></line>
+            </svg>
+            <span>Laser</span>
+          </button>
+
+          <button id="tab-cursor" class="tool-pill" title="Trackpad (Mac Cursor)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
+              <path d="m13 13 6 6"></path>
+            </svg>
+            <span>Trackpad</span>
+          </button>
+
+          <button id="tab-eraser" class="tool-pill" title="Eraser">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"></path>
+              <path d="M22 21H7"></path>
+              <path d="m5 11 9 9"></path>
+            </svg>
+            <span>Eraser</span>
+          </button>
+
+          <button id="tab-ai-shape" class="tool-pill active" title="AI Shape & Geometry Recognition (Auto-Clean)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
+            </svg>
+            <span>✨ AI Shape</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-center">
+        <!-- Palette -->
+        <div id="color-group" class="color-picker-row">
+          <div class="swatch active" style="--swatch-color: #0ea5e9;" data-color="#0ea5e9"></div>
+          <div class="swatch" style="--swatch-color: #f43f5e;" data-color="#f43f5e"></div>
+          <div class="swatch" style="--swatch-color: #f59e0b;" data-color="#f59e0b"></div>
+          <div class="swatch" style="--swatch-color: #10b981;" data-color="#10b981"></div>
+          <div class="swatch" style="--swatch-color: #8b5cf6;" data-color="#8b5cf6"></div>
+          <div class="swatch" style="--swatch-color: #ffffff;" data-color="#ffffff"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Size -->
+        <div class="size-segmented">
+          <button class="size-btn" data-size="3" title="Fine (3px)">
+            <span class="size-dot" style="width: 4px; height: 4px;"></span>
+          </button>
+          <button class="size-btn active" data-size="6" title="Medium (6px)">
+            <span class="size-dot" style="width: 7px; height: 7px;"></span>
+          </button>
+          <button class="size-btn" data-size="12" title="Bold (12px)">
+            <span class="size-dot" style="width: 11px; height: 11px;"></span>
+          </button>
+          <button class="size-btn" data-size="20" title="Marker (20px)">
+            <span class="size-dot" style="width: 15px; height: 15px;"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar-right">
+        <!-- Actions -->
+        <div class="action-row">
+          <button id="tab-undo" class="action-icon" title="Undo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7v6h6"></path>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+            </svg>
+          </button>
+          <button id="tab-redo" class="action-icon" title="Redo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 7v6h-6"></path>
+              <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path>
+            </svg>
+          </button>
+          <button id="tab-clear" class="action-icon" title="Clear Screen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+          </button>
+          <button id="tab-emergency-stop" class="action-icon danger" title="Emergency Stop: Halt input & disconnect">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Connection & Hardware Telemetry -->
+        <div id="status-pill" class="status-badge disconnected">
+          <span class="status-dot"></span>
+          <span id="status-label">Offline</span>
+          <span id="ping-label" class="ping-text">--ms</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Touch Area -->
+    <main id="pad-surface">
+      <!-- 1. The Real-time Drawing Canvas -->
+      <canvas id="active-canvas"></canvas>
+
+      <!-- 2. Trackpad Touchpad Overlay (active only in Cursor mode) -->
+      <div id="trackpad-layer" class="hidden">
+        <div class="trackpad-content">
+          <div class="trackpad-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="4" width="20" height="16" rx="4"></rect>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <line x1="12" y1="12" x2="12" y2="20"></line>
+            </svg>
+          </div>
+          <div class="trackpad-title">Mac Cursor Mode</div>
+          <div class="trackpad-subtitle">
+            Glide finger/stylus to move cursor • Tap to click • 2 fingers to scroll
+          </div>
+
+          <!-- Quick Virtual Buttons -->
+          <div class="trackpad-actions">
+            <button id="tp-btn-left" class="tp-btn">
+              <span>Left Click</span>
+            </button>
+            <button id="tp-btn-drag" class="tp-btn">
+              <span id="tp-drag-text">🔒 Drag Lock: OFF</span>
+            </button>
+            <button id="tp-btn-right" class="tp-btn">
+              <span>Right Click</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stylus / Palm Rejection Indicator -->
+      <div id="stylus-badge" class="stylus-badge hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 2 4 4-12 12H6v-4L18 2z"></path>
+          <path d="m14 6 4 4"></path>
+        </svg>
+        <span>S-Pen Active • Palm Rejection ON</span>
+      </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="/shared/ai-shape-recognizer.js"></script>
+  <script src="/tablet/tablet.js"></script>
+</body>
+</html>
