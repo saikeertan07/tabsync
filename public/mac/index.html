@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TabSync Studio - Mac Host</title>
+  <link rel="stylesheet" href="/mac/style.css">
+</head>
+<body>
+  <div id="mac-app">
+    <!-- Header -->
+    <header id="mac-header">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <span class="brand-title">TabSync Studio</span>
+        <span class="badge-pill">macOS Host</span>
+      </div>
+
+      <div class="center-info">
+        <div id="connection-pill" class="connection-status waiting">
+          <span class="status-dot"></span>
+          <span id="connection-text">Waiting for Android Tablet...</span>
+        </div>
+        <span id="sys-input-badge" class="badge-pill" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">
+          Mac Digitizer: Ready
+        </span>
+      </div>
+
+      <div class="header-actions">
+        <button id="qr-modal-btn" class="btn-primary">
+          <span>📱</span> Connect Tablet
+        </button>
+        <button id="sidebar-toggle-btn" class="btn-secondary">
+          <span>⚙️</span> Devices & Info
+        </button>
+        <button id="mac-fullscreen-btn" class="btn-secondary" title="Toggle Fullscreen">
+          <span>⛶</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div id="main-layout">
+      <!-- Live Canvas Stage -->
+      <main id="canvas-stage">
+        <canvas id="mac-canvas"></canvas>
+
+        <!-- Floating Canvas Controls -->
+        <div id="canvas-floating-dock">
+          <select id="bg-selector" class="dock-select">
+            <option value="dark-dots">Dark Dots</option>
+            <option value="dark-grid">Dark Blueprint Grid</option>
+            <option value="pure-black">Pure Black (OLED)</option>
+            <option value="light-dots">Light Dots</option>
+            <option value="paper">Lined Paper</option>
+            <option value="pure-white">Pure White</option>
+          </select>
+
+          <div class="divider"></div>
+
+          <button id="undo-btn" class="dock-btn" title="Undo Last Stroke">
+            <span>↩️</span> Undo
+          </button>
+          <button id="clear-btn" class="dock-btn" title="Clear Canvas">
+            <span>🗑️</span> Clear
+          </button>
+
+          <div class="divider"></div>
+
+          <button id="copy-clipboard-btn" class="dock-btn" title="Copy to Mac Clipboard">
+            <span>📋</span> Copy to Clipboard
+          </button>
+          <button id="save-image-btn" class="dock-btn" title="Export High-Res PNG">
+            <span>💾</span> Save Image
+          </button>
+        </div>
+
+        <!-- Real-time Stylus Marker from Tablet -->
+        <div id="stylus-cursor"></div>
+      </main>
+
+      <!-- Side Details Drawer -->
+      <aside id="side-drawer" class="hidden">
+        <div class="drawer-title">
+          <span>📱</span> Connected Devices
+        </div>
+
+        <div class="card">
+          <div class="card-title">Active Tablets</div>
+          <div id="tablet-list">
+            <div style="font-size: 13px; color: var(--text-secondary); text-align: center; padding: 12px 0;">
+              No tablets connected yet.<br>Scan QR code to connect!
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Local Network URLs</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+            Open any of these on your Android tablet browser:
+          </div>
+          <div id="ip-address-list" class="ip-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Mac Digitizer Bridge</div>
+          <div style="font-size: 13px; line-height: 1.5; color: var(--text-secondary);">
+            <div><strong>Screen Size:</strong> <span id="mac-screen-res">Detecting...</span></div>
+            <div style="margin-top: 4px;"><strong>Accessibility:</strong> <span id="mac-access-status" style="color: #10b981;">Granted (Active)</span></div>
+            <div style="margin-top: 4px;"><strong>Hardware Pressure:</strong> <span style="color: #38bdf8;">Supported (CoreGraphics)</span></div>
+            <div style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);">
+              Use <em>"Mac Tablet"</em> mode on your tablet to draw directly into Photoshop, Figma, Krita, or Preview!
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Session Statistics</div>
+          <div style="font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px;">
+            <div>Total Strokes Drawn: <strong id="stat-strokes" style="color: #fff;">0</strong></div>
+            <div>Sync Protocol: <strong style="color: #38bdf8;">WebSocket (Dual-Layer 120FPS)</strong></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- QR Code Modal Dialog -->
+    <div id="qr-modal" class="modal-overlay">
+      <div class="modal-dialog">
+        <div class="modal-title">Connect Your Android Tablet</div>
+        <div class="modal-sub">
+          Ensure your tablet is on the same Wi-Fi (or USB Tethering), then scan this QR code:
+        </div>
+
+        <img id="qr-code-img" src="" alt="Scan QR Code to Connect Tablet">
+
+        <div id="qr-tablet-url" class="qr-url-box">
+          Loading URL...
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button id="copy-url-btn" class="btn-primary">
+            <span>📋</span> Copy Link
+          </button>
+          <a href="/download/TabSyncStudio.apk" download="TabSyncStudio.apk" class="btn-secondary" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 6px;">
+            <span>🤖</span> Download APK
+          </a>
+          <button id="close-modal-btn" class="btn-secondary">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mac-toast"></div>
+  </div>
+
+  <script src="/shared/canvas-engine.js"></script>
+  <script src="/mac/mac.js"></script>
+</body>
+</html>
