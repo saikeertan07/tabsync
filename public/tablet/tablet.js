@@ -22,14 +22,11 @@
   const tabLaser = document.getElementById('tab-laser');
   const tabCursor = document.getElementById('tab-cursor');
   const tabEraser = document.getElementById('tab-eraser');
-  const tabAiShape = document.getElementById('tab-ai-shape');
   const tabUndo = document.getElementById('tab-undo');
   const tabRedo = document.getElementById('tab-redo');
   const tabClear = document.getElementById('tab-clear');
+  const tabExport = document.getElementById('tab-export');
   const tabEmergencyStop = document.getElementById('tab-emergency-stop');
-
-  // AI Feature State
-  let isAiShapeEnabled = true;
 
   // Trackpad Buttons
   const tpBtnLeft = document.getElementById('tp-btn-left');
@@ -164,47 +161,6 @@
       c.strokeStyle = color;
       c.globalAlpha = 1.0;
       c.lineWidth = baseSize;
-    }
-
-    if (['line', 'rect', 'circle', 'arrow'].includes(stroke.tool)) {
-      if (pts.length >= 2) {
-        const start = toCanvas(pts[0].x, pts[0].y);
-        const end = toCanvas(pts[pts.length - 1].x, pts[pts.length - 1].y);
-        c.lineWidth = baseSize;
-
-        if (stroke.tool === 'line') {
-          c.beginPath();
-          c.moveTo(start.x, start.y);
-          c.lineTo(end.x, end.y);
-          c.stroke();
-        } else if (stroke.tool === 'rect') {
-          c.beginPath();
-          c.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
-        } else if (stroke.tool === 'circle') {
-          const rx = Math.abs(end.x - start.x) / 2;
-          const ry = Math.abs(end.y - start.y) / 2;
-          const cx = Math.min(start.x, end.x) + rx;
-          const cy = Math.min(start.y, end.y) + ry;
-          c.beginPath();
-          c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-          c.stroke();
-        } else if (stroke.tool === 'arrow') {
-          c.beginPath();
-          c.moveTo(start.x, start.y);
-          c.lineTo(end.x, end.y);
-          c.stroke();
-          const angle = Math.atan2(end.y - start.y, end.x - start.x);
-          const headLen = Math.max(12 * dpr, baseSize * 3);
-          c.beginPath();
-          c.moveTo(end.x, end.y);
-          c.lineTo(end.x - headLen * Math.cos(angle - Math.PI / 6), end.y - headLen * Math.sin(angle - Math.PI / 6));
-          c.moveTo(end.x, end.y);
-          c.lineTo(end.x - headLen * Math.cos(angle + Math.PI / 6), end.y - headLen * Math.sin(angle + Math.PI / 6));
-          c.stroke();
-        }
-      }
-      c.restore();
-      return;
     }
 
     if (pts.length === 1) {
@@ -619,14 +575,6 @@
   tabCursor.addEventListener('click', () => setMode('cursor'));
   tabEraser.addEventListener('click', () => setMode('eraser'));
 
-  if (tabAiShape) {
-    tabAiShape.addEventListener('click', () => {
-      isAiShapeEnabled = !isAiShapeEnabled;
-      tabAiShape.classList.toggle('active', isAiShapeEnabled);
-      showToast(isAiShapeEnabled ? '✨ AI Shape Recognition: ON' : '✨ AI Shape Recognition: OFF', 1800);
-    });
-  }
-
   document.querySelectorAll('.swatch').forEach(s => {
     s.addEventListener('click', () => setColor(s.dataset.color));
   });
@@ -678,6 +626,24 @@
       sendWS({ type: 'clear' });
     }
   });
+
+  // Feature Upgrade: Direct client-side canvas snapshot export to tablet device
+  if (tabExport) {
+    tabExport.addEventListener('click', () => {
+      try {
+        const link = document.createElement('a');
+        link.download = `tabsync-sketch-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('💾 Saved drawing to tablet!');
+      } catch (err) {
+        console.error('Export failed:', err);
+        showToast('Export failed');
+      }
+    });
+  }
 
   if (tabEmergencyStop) {
     tabEmergencyStop.addEventListener('click', () => {
@@ -769,22 +735,6 @@
 
     if (!isDrawing || !currentStroke) return;
     isDrawing = false;
-
-    // AI Smart Shape & Geometry Recognition (Auto-Clean / Beautification)
-    if (isAiShapeEnabled && (currentMode === 'pen' || currentMode === 'highlighter') && window.AIShapeRecognizer) {
-      try {
-        const aiResult = window.AIShapeRecognizer.recognize(currentStroke.points);
-        if (aiResult && aiResult.matched) {
-          currentStroke.tool = aiResult.tool;
-          currentStroke.points = aiResult.points;
-          const shapeName = aiResult.shape.charAt(0).toUpperCase() + aiResult.shape.slice(1);
-          const confPct = Math.round(aiResult.confidence * 100);
-          showToast(`✨ AI Shape: ${shapeName} (${confPct}%)`, 1600);
-        }
-      } catch (err) {
-        // Safe degradation if recognition error occurs
-      }
-    }
 
     strokes.push(currentStroke);
     if (strokes.length > 800) strokes.shift();

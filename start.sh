@@ -12,7 +12,7 @@ if [ ! -f "./mac-input" ]; then
   chmod +x mac-input
 fi
 
-# Open Mac Dashboard in default browser after 1 second
+# Open Mac Dashboard in default browser after 1 second (uses HTTPS with automatic HTTP gateway fallback)
 (sleep 1.2 && open "https://localhost:4444") &
 
 # Start server

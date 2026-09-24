@@ -375,6 +375,42 @@ class CanvasEngine {
     return this.canvas.toDataURL(type);
   }
 
+  /**
+   * Export drawing as a crisp high-resolution PNG data URL with full rendered background
+   * @param {number} scale DPI scaling factor (default: 2 for HiDPI clarity)
+   * @returns {string} PNG data URL
+   */
+  exportHighResPng(scale = 2) {
+    if (typeof document === 'undefined') return '';
+    const exportCanvas = document.createElement('canvas');
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    exportCanvas.width = Math.max(1, Math.round(w * scale));
+    exportCanvas.height = Math.max(1, Math.round(h * scale));
+    const exportCtx = exportCanvas.getContext('2d');
+
+    exportCtx.scale(scale, scale);
+    this.drawBackground(exportCtx);
+
+    for (const stroke of this.history) {
+      this.drawStroke(stroke, exportCtx);
+    }
+
+    return exportCanvas.toDataURL('image/png');
+  }
+
+  /**
+   * Export vector stroke history and canvas metadata as a JSON string
+   */
+  exportVectorJson() {
+    return JSON.stringify({
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      backgroundStyle: this.backgroundStyle,
+      strokes: this.history
+    }, null, 2);
+  }
+
   clear() {
     this.history = [];
     this.redoStack = [];

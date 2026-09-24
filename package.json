@@ -1,28 +1,16 @@
 {
-  "name": "tabsync-studio",
+  "name": "tabsync-app",
   "version": "1.0.0",
-  "description": "Connect an Android tablet to macOS for zero-latency vector drawing, AI smart shape recognition, live screen annotations, and remote precision input.",
-  "main": "server.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/security_and_protocol.test.js && node tests/integration_network.test.js",
-    "build:mac-input": "swiftc -O mac-input.swift -o mac-input",
-    "build:mac-app": "swiftc -O TabSyncStudioMain.swift -o TabSyncStudio",
-    "build:android": "cd android && ./gradlew assembleRelease && cd .."
+    "build:mac": "swiftc -O mac-input.swift -o mac-input"
   },
-  "keywords": [
-    "drawing-tablet",
-    "graphics-tablet",
-    "stylus",
-    "s-pen",
-    "macos",
-    "android",
-    "wacom-alternative",
-    "remote-input",
-    "screen-annotation"
-  ],
-  "author": "TabSync Studio Team",
-  "license": "MIT",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
