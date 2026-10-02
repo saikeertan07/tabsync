@@ -440,7 +440,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
         
         var serverDir = Bundle.main.resourceURL?.appendingPathComponent("app").path ?? ""
         if !FileManager.default.fileExists(atPath: serverDir + "/server.js") {
-            serverDir = "/Users/tedlasaikeertan/.gemini/antigravity/scratch/tabsync-app"
+            let cwd = FileManager.default.currentDirectoryPath
+            if FileManager.default.fileExists(atPath: cwd + "/server.js") {
+                serverDir = cwd
+            } else {
+                let execParent = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().path
+                if FileManager.default.fileExists(atPath: execParent + "/server.js") {
+                    serverDir = execParent
+                } else {
+                    serverDir = Bundle.main.bundleURL.deletingLastPathComponent().path
+                }
+            }
         }
         
         let process = Process()
