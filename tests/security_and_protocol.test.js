@@ -293,6 +293,58 @@ it('Recovers from corrupt paired_devices.json using .bak fallback', () => {
   fs.rmSync(corruptDir, { recursive: true, force: true });
 });
 
+console.log('\n[Subsystem: AI Smart Shape & Curve Recognition]');
+const AIShapeRecognizer = require('../public/shared/ai-shape-recognizer');
+
+it('AI Recognizer: Accurately detects straight line from freehand coordinates', () => {
+  const linePts = [];
+  for (let i = 0; i <= 20; i++) {
+    linePts.push({ x: 0.1 + (i / 20) * 0.6, y: 0.25 + (Math.random() * 0.004) });
+  }
+  const result = AIShapeRecognizer.recognize(linePts);
+  assert.strictEqual(result.matched, true, 'Must identify line shape');
+  assert.strictEqual(result.shape, 'line');
+  assert.strictEqual(result.tool, 'line');
+  assert(result.confidence >= 0.90, 'High confidence for straight line');
+  assert.strictEqual(result.points.length, 2);
+});
+
+it('AI Recognizer: Accurately detects circle from closed circular points', () => {
+  const circlePts = [];
+  for (let i = 0; i <= 36; i++) {
+    const theta = (i / 36) * Math.PI * 2;
+    circlePts.push({
+      x: 0.5 + 0.18 * Math.cos(theta) + (Math.random() * 0.005),
+      y: 0.5 + 0.18 * Math.sin(theta) + (Math.random() * 0.005)
+    });
+  }
+  const result = AIShapeRecognizer.recognize(circlePts);
+  assert.strictEqual(result.matched, true, 'Must identify circle shape');
+  assert.strictEqual(result.shape, 'circle');
+  assert(result.confidence >= 0.85, 'High confidence for circle');
+});
+
+it('AI Recognizer: Accurately detects rectangle from four-corner loop', () => {
+  const rectPts = [];
+  for (let i = 0; i <= 10; i++) rectPts.push({ x: 0.2 + (i / 10) * 0.5, y: 0.2 });
+  for (let i = 0; i <= 10; i++) rectPts.push({ x: 0.7, y: 0.2 + (i / 10) * 0.4 });
+  for (let i = 0; i <= 10; i++) rectPts.push({ x: 0.7 - (i / 10) * 0.5, y: 0.6 });
+  for (let i = 0; i <= 10; i++) rectPts.push({ x: 0.2, y: 0.6 - (i / 10) * 0.4 });
+  const result = AIShapeRecognizer.recognize(rectPts);
+  assert.strictEqual(result.matched, true, 'Must identify rectangle shape');
+  assert.strictEqual(result.shape, 'rect');
+  assert(result.confidence >= 0.85, 'High confidence for rectangle');
+});
+
+it('AI Recognizer: Rejects irregular scribbles and preserves organic strokes', () => {
+  const scribblePts = [
+    { x: 0.1, y: 0.1 }, { x: 0.4, y: 0.9 }, { x: 0.2, y: 0.3 },
+    { x: 0.8, y: 0.6 }, { x: 0.3, y: 0.2 }, { x: 0.7, y: 0.8 }
+  ];
+  const result = AIShapeRecognizer.recognize(scribblePts);
+  assert.strictEqual(result.matched, false, 'Must not falsely recognize random scribble as shape');
+});
+
 // Cleanup test dir
 fs.rmSync(testDir, { recursive: true, force: true });
 
