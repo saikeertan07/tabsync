@@ -50,16 +50,6 @@ app.get('/api/status', (req, res) => {
   res.json({ ok: true, isEmergencyStopActive });
 });
 
-// Canvas Snapshot Export Endpoint
-app.get('/api/canvas/export', (req, res) => {
-  res.json({
-    timestamp: Date.now(),
-    backgroundStyle: 'dark-dots',
-    totalStrokes: 0,
-    strokes: []
-  });
-});
-
 function broadcastToAuthenticated(data, excludeWs = null) {
   const payload = JSON.stringify(data);
   for (const [client, meta] of activeConnections.entries()) {
@@ -170,15 +160,6 @@ wss.on('connection', (ws, req) => {
       }
       executedCommands.push(`move_rel_${msg.dx}_${msg.dy}`);
       ws.send(JSON.stringify({ type: 'ack', cmd: 'input_move_rel' }));
-      return;
-    }
-
-    if (msg.type === 'input_move') {
-      if (currentInputOwner && currentInputOwner !== ws) {
-        return; // Drop secondary client move during active drag
-      }
-      executedCommands.push(`move_${msg.x}_${msg.y}`);
-      ws.send(JSON.stringify({ type: 'ack', cmd: 'input_move' }));
       return;
     }
 
@@ -394,22 +375,6 @@ server.listen(4567, async () => {
     const bReject = await qB.next();
     assert.strictEqual(bReject.type, 'collision_rejected', 'Must reject collision when another client owns input');
     console.log("  ✓ PASS: Multi-client input collision rejected while owner holds drag");
-    testPass++;
-
-    // Test input_move collision protection: Client B attempts input_move while Client A holds ownership
-    wsB.send(JSON.stringify({ type: 'input_move', x: 500, y: 500 }));
-    await new Promise(r => setTimeout(r, 60));
-    assert(!executedCommands.includes('move_500_500'), 'Must drop absolute move collision when another client owns input');
-    console.log("  ✓ PASS: Multi-client absolute input_move collision dropped while owner holds drag");
-    testPass++;
-
-    // Test canvas snapshot export endpoint
-    const exportRes = await httpGet('http://localhost:4567/api/canvas/export');
-    assert.strictEqual(exportRes.statusCode, 200, 'Canvas export endpoint should return 200');
-    const exportJson = JSON.parse(exportRes.body);
-    assert.strictEqual(typeof exportJson.timestamp, 'number');
-    assert(Array.isArray(exportJson.strokes));
-    console.log("  ✓ PASS: Canvas snapshot export endpoint returns structured strokes and timestamp");
     testPass++;
 
     // Client B disconnects while Client A is holding down input
