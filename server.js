@@ -4,7 +4,6 @@
  * canvas synchronization, and native macOS input automation.
  */
 const https = require('https');
-const net = require('net');
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
 const path = require('path');
@@ -42,6 +41,18 @@ function getLocalIpAddresses() {
 }
 
 const app = express();
+
+// Strict HTTP Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' data: blob:; connect-src 'self' wss: https:;");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
 let PORT = parseInt(process.env.PORT || '4444', 10);
 const initialIps = getLocalIpAddresses().map(i => i.address);
 const pairingManager = new PairingManager(null, initialIps);
@@ -114,7 +125,7 @@ function startMacInputProcess() {
   }
 }
 
-const ALLOWED_MAC_INPUT_COMMANDS = /^(move\s+[0-9.]+\s+[0-9.]+(\s+[0-9.]+)?|move_rel\s+-?[0-9.]+\s+-?[0-9.]+|down\s+(left|right|middle)(\s+[0-9.]+)?|up\s+(left|right|middle)|click(\s+(left|right|middle))?|rclick|scroll\s+-?[0-9]+\s+-?[0-9]+|type\s+[^\r\n]{1,256}|key\s+[0-9]+(\s+[a-z,]+)?|release_all|emergency_stop|resume_input|info|quit)$/;
+const ALLOWED_MAC_INPUT_COMMANDS = /^(move\s+[0-9.]+\s+[0-9.]+(\s+[0-9.]+)?|move_rel\s+-?[0-9.]+\s+-?[0-9.]+|down\s+(left|right|middle)(\s+[0-9.]+)?|up\s+(left|right|middle)|click(\s+(left|right|middle))?|rclick|scroll\s+-?[0-9]+\s+-?[0-9]+|type\s+[^\r\n]{1,256}|key\s+[0-9]+(\s+[a-z,]+)?|release_all|emergency_stop|resume_input|info)$/;
 
 function sendToMacInput(cmd) {
   if (typeof cmd !== 'string' || !ALLOWED_MAC_INPUT_COMMANDS.test(cmd)) {
@@ -212,38 +223,10 @@ function requireHostAuth(req, res, next) {
     }
   }
 
-  // 3. Header authorization check using constant-time safeCompare (Native Mac wrapper / CLI)
+  // 3. Header authorization check using constant-time safeCompare
   const tokenHeader = req.headers['x-tabsync-host-secret'];
   if (tokenHeader && safeCompare(tokenHeader, HOST_SECRET)) {
     return next();
-  }
-
-  // 4. Session cookie & Same-Origin authorization for local loopback web clients (Dashboard & Widget)
-  if (isLoopbackAddress(req.socket.remoteAddress)) {
-    // Cookie authentication
-    const cookieHeader = req.headers.cookie;
-    if (cookieHeader) {
-      const match = cookieHeader.match(/(?:^|;\s*)tabsync_host_session=([^;]*)/);
-      if (match && safeCompare(decodeURIComponent(match[1]), HOST_SECRET)) {
-        return next();
-      }
-    }
-
-    // Loopback browser same-origin authorization fallback
-    const secFetchSite = req.headers['sec-fetch-site'];
-    const referer = req.headers.referer;
-    if (secFetchSite === 'same-origin' || !origin) {
-      if (referer) {
-        try {
-          const parsedRef = new URL(referer);
-          const isLoopbackRef = parsedRef.hostname === 'localhost' || parsedRef.hostname === '127.0.0.1' || parsedRef.hostname === '[::1]';
-          const isPortRef = !parsedRef.port || parseInt(parsedRef.port, 10) === PORT;
-          if (isLoopbackRef && isPortRef) {
-            return next();
-          }
-        } catch (e) {}
-      }
-    }
   }
 
   log.warn('Security', `Unauthorized administrative request to ${req.path} from ${req.socket.remoteAddress}`);
@@ -255,14 +238,6 @@ app.use((req, res, next) => {
   if (req.query && (req.query.token || req.query.pin || req.query.host_secret || req.query.secret)) {
     log.warn('Security', `Rejected query parameter credentials from ${req.ip}`);
     return res.status(400).json({ error: 'Query parameter credentials are strictly forbidden. Use URL hash fragments (#) or HTTP headers.' });
-  }
-  next();
-});
-
-// Set host session cookie for local loopback web requests (Dashboard & Widget access)
-app.use((req, res, next) => {
-  if (isLoopbackAddress(req.socket.remoteAddress)) {
-    res.setHeader('Set-Cookie', `tabsync_host_session=${HOST_SECRET}; Path=/; HttpOnly; SameSite=Strict; Secure`);
   }
   next();
 });
@@ -385,16 +360,6 @@ app.post('/api/canvas/clear', requireHostAuth, (req, res) => {
   redoHistory = [];
   broadcastToAuthenticated({ type: 'clear' });
   res.json({ success: true });
-});
-
-// Feature Upgrade: Canvas Snapshot Export Endpoint (structured vector strokes & session metadata)
-app.get('/api/canvas/export', (req, res) => {
-  res.json({
-    timestamp: Date.now(),
-    backgroundStyle: currentBackground,
-    totalStrokes: drawingHistory.length,
-    strokes: drawingHistory
-  });
 });
 
 app.post('/api/emergency_stop', requireHostAuth, (req, res) => {
@@ -665,6 +630,15 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
+    // Replay Attack & Timestamp Freshness Check (Drop stale frames >15s or futuristic >5s)
+    if (typeof msg.timestamp === 'number') {
+      const now = Date.now();
+      if (msg.timestamp < now - 15000 || msg.timestamp > now + 5000) {
+        log.warn('Security', `Dropped expired/skewed message '${msg.type}' from ${clientMeta.deviceId} (delta: ${now - msg.timestamp}ms)`);
+        return;
+      }
+    }
+
     // Privileged Command Routing
     switch (msg.type) {
       // Drawing events
@@ -727,10 +701,6 @@ wss.on('connection', (ws, req) => {
       case 'input_move': {
         if (isEmergencyStopActive) {
           ws.send(JSON.stringify({ type: 'input_blocked', reason: 'Emergency Stop is active' }));
-          break;
-        }
-        if (currentInputOwner && currentInputOwner !== ws) {
-          // Reject absolute cursor hijacking while another client owns the active input drag/stroke
           break;
         }
         if (typeof msg.x === 'number' && typeof msg.y === 'number') {
@@ -976,64 +946,25 @@ function removeSessionInfo() {
   } catch (e) {}
 }
 
-// Gateway server reference for multiplexed HTTP/HTTPS handling
-let gatewayServer = null;
-
-// Port retry & listener with Dual-Protocol multiplexing (Auto HTTP -> HTTPS redirect)
+// Port retry & listener
 function startListening(portToTry) {
-  const gateway = net.createServer((socket) => {
-    socket.once('data', (chunk) => {
-      socket.pause();
-      socket.unshift(chunk);
-      // Check first byte: 0x16 (22) indicates a TLS Handshake record
-      if (chunk[0] === 0x16) {
-        server.emit('connection', socket);
-        process.nextTick(() => socket.resume());
-      } else {
-        // Plain HTTP connection (e.g. user opening http://localhost:PORT or scanning plain URL)
-        // Redirect cleanly to HTTPS
-        const reqStr = chunk.toString('utf8');
-        const hostMatch = reqStr.match(/Host:\s*([^\r\n]+)/i);
-        const rawHost = hostMatch ? hostMatch[1].trim() : 'localhost';
-        const hostWithoutPort = rawHost.split(':')[0];
-        const pathMatch = reqStr.match(/^[A-Z]+\s+([^\s]+)/);
-        const reqPath = pathMatch ? pathMatch[1] : '/';
-        const redirectUrl = `https://${hostWithoutPort}:${portToTry}${reqPath}`;
-
-        const response = [
-          'HTTP/1.1 302 Found',
-          `Location: ${redirectUrl}`,
-          'Connection: close',
-          'Content-Length: 0',
-          '\r\n'
-        ].join('\r\n');
-        socket.end(response);
-      }
-    });
-
-    socket.on('error', () => {
-      // Ignore routine socket disconnects
-    });
-  });
-
-  gateway.listen(portToTry, '0.0.0.0', () => {
-    gatewayServer = gateway;
+  server.listen(portToTry, '0.0.0.0', () => {
     PORT = portToTry;
     saveSessionInfo();
     startUdpDiscovery();
     const ips = getLocalIpAddresses();
-    log.info('Server', `⚡ TabSync Studio Host listening on port ${PORT} (Dual-protocol HTTPS/WSS with auto HTTP redirect)`);
+    log.info('Server', `⚡ TabSync Studio Host listening on port ${PORT} (HTTPS & WSS)`);
     ips.forEach(ip => {
       log.info('Server', `   ➜ https://${ip.address}:${PORT}/tablet (${ip.name})`);
     });
   });
 
-  gateway.on('error', (err) => {
+  server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       log.warn('Server', `Port ${portToTry} in use, trying ${portToTry + 1}...`);
       startListening(portToTry + 1);
     } else {
-      log.error('Server', `Gateway error: ${err.message}`);
+      log.error('Server', `Server error: ${err.message}`);
     }
   });
 }
@@ -1044,10 +975,6 @@ const cleanExit = () => {
   log.info('Server', 'Graceful shutdown initiated...');
   stopUdpDiscovery();
   removeSessionInfo();
-  if (gatewayServer) {
-    try { gatewayServer.close(); } catch (e) {}
-  }
-  try { server.close(); } catch (e) {}
   if (macInputProcess) {
     sendToMacInput('release_all');
     sendToMacInput('quit');
