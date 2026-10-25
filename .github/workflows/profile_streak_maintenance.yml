@@ -1,0 +1,39 @@
+name: Profile & System Streak Maintenance
+
+on:
+  schedule:
+    - cron: '45 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  telemetry-maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Execute Maintenance Telemetry Engine
+        run: |
+          python3 scripts/automation/maintain_streak.py
+
+      - name: Commit and Push Operational Telemetry
+        run: |
+          git config user.name "Sai Keertan"
+          git config user.email "tedlasaikeertan@gmail.com"
+          if [ -n "$(git status --porcelain docs/logs/system_maintenance.log)" ]; then
+            git add docs/logs/system_maintenance.log
+            git commit -m "chore(telemetry): record automated system health and maintenance telemetry"
+            git push origin main
+          else
+            echo "Telemetry is current or scheduled weekly rest-day observed."
+          fi

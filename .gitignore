@@ -35,6 +35,7 @@ security/*.key
 host_cert.pem
 host_key.pem
 *.log
+!docs/logs/*.log
 *.pid
 
 # Android Build & Local User Configurations
