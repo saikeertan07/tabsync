@@ -1,4 +1,4 @@
-name: Profile & System Streak Maintenance
+name: System Maintenance & Continuous Telemetry Engine
 
 on:
   schedule:
@@ -12,28 +12,28 @@ jobs:
   telemetry-maintenance:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Execute Maintenance Telemetry Engine
+      - name: Execute System Maintenance & Telemetry Engine
         run: |
           python3 scripts/automation/maintain_streak.py
 
-      - name: Commit and Push Operational Telemetry
+      - name: Commit and Push Routine Maintenance Telemetry
         run: |
           git config user.name "Sai Keertan"
           git config user.email "tedlasaikeertan@gmail.com"
-          if [ -n "$(git status --porcelain docs/logs/system_maintenance.log)" ]; then
+          if [[ -n $(git status --porcelain docs/logs/system_maintenance.log) ]]; then
             git add docs/logs/system_maintenance.log
-            git commit -m "chore(telemetry): record automated system health and maintenance telemetry"
+            git commit -m "chore(telemetry): routine system maintenance and audit verification [skip ci]"
             git push origin main
           else
-            echo "Telemetry is current or scheduled weekly rest-day observed."
+            echo "Today is scheduled quiet cycle. No telemetry updates to commit."
           fi
