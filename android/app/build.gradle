@@ -24,13 +24,16 @@ android {
                 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
             }
 
-            def storeFilePath = System.getenv("KEYSTORE_PATH") ?: keystoreProperties.getProperty("storeFile") ?: "../release.keystore"
-            def candidateFile = file(storeFilePath)
-            if (candidateFile.exists()) {
-                storeFile candidateFile
-                storePassword System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword") ?: ""
-                keyAlias System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias") ?: ""
-                keyPassword System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword") ?: ""
+            def storeFilePath = System.getenv("KEYSTORE_PATH") ?: keystoreProperties.getProperty("storeFile")
+            def storePass = System.getenv("KEYSTORE_PASSWORD") ?: keystoreProperties.getProperty("storePassword")
+            def alias = System.getenv("KEY_ALIAS") ?: keystoreProperties.getProperty("keyAlias")
+            def keyPass = System.getenv("KEY_PASSWORD") ?: keystoreProperties.getProperty("keyPassword")
+
+            if (storeFilePath && storePass && alias && file(storeFilePath).exists()) {
+                storeFile file(storeFilePath)
+                storePassword storePass
+                keyAlias alias
+                keyPassword keyPass
             }
         }
     }
@@ -39,7 +42,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists()) {
+            if (signingConfigs.release.storeFile != null && signingConfigs.release.storeFile.exists() && signingConfigs.release.storePassword != null) {
                 signingConfig signingConfigs.release
             } else {
                 signingConfig signingConfigs.debug
@@ -51,8 +54,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
