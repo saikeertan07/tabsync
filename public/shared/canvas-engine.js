@@ -22,14 +22,18 @@ class CanvasEngine {
     this.laserPointer = null;
     this.laserTrail = [];
 
-    this.dpr = window.devicePixelRatio || 1;
+    this.dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
 
     // Offscreen background caching for 120Hz high-efficiency rendering
     this.bgCanvas = (typeof document !== 'undefined' && document.createElement) ? document.createElement('canvas') : null;
     this.bgDirty = true;
 
-    this.setupResizeObserver();
-    this.startLaserAnimationLoop();
+    if (typeof ResizeObserver !== 'undefined' && this.canvas) {
+      this.setupResizeObserver();
+    }
+    if (typeof requestAnimationFrame !== 'undefined') {
+      this.startLaserAnimationLoop();
+    }
   }
 
   setupResizeObserver() {

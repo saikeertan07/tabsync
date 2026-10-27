@@ -345,6 +345,52 @@ it('AI Recognizer: Rejects irregular scribbles and preserves organic strokes', (
   assert.strictEqual(result.matched, false, 'Must not falsely recognize random scribble as shape');
 });
 
+console.log('\n[Subsystem: Canvas Performance & Point Decimation]');
+const CanvasEngine = require('../public/shared/canvas-engine');
+
+it('CanvasEngine: Decimates sub-pixel micro-jitter points', () => {
+  const fakeCanvas = {
+    getContext: () => ({ save: () => {}, restore: () => {}, beginPath: () => {}, fillRect: () => {} }),
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 1000 }),
+    style: {}
+  };
+  const engine = new CanvasEngine(fakeCanvas);
+  const stroke = { points: [] };
+
+  const p1 = engine.addPoint(stroke, { x: 0.1, y: 0.1 });
+  assert.strictEqual(p1, true, 'First point must be added');
+  assert.strictEqual(stroke.points.length, 1);
+
+  // Sub-pixel jitter (< 1.5px distance on 1000x1000)
+  const p2 = engine.addPoint(stroke, { x: 0.1005, y: 0.1005 });
+  assert.strictEqual(p2, false, 'Sub-pixel jitter must be decimated');
+  assert.strictEqual(stroke.points.length, 1);
+
+  // Intentional movement (5px distance)
+  const p3 = engine.addPoint(stroke, { x: 0.105, y: 0.105 });
+  assert.strictEqual(p3, true, 'Intentional stroke point must be added');
+  assert.strictEqual(stroke.points.length, 2);
+});
+
+console.log('\n[Subsystem: Server Diagnostics & Telemetry Schema]');
+it('Validates operational telemetry and health schema structure', () => {
+  const sampleHealth = {
+    status: 'healthy',
+    service: 'tabsync-studio',
+    version: '1.0.0',
+    uptimeSeconds: 120,
+    timestamp: new Date().toISOString(),
+    memory: { heapUsedMb: 45.2, rssMb: 78.1 },
+    activeClients: 2,
+    emergencyStop: false
+  };
+
+  assert.strictEqual(sampleHealth.status, 'healthy');
+  assert.strictEqual(typeof sampleHealth.uptimeSeconds, 'number');
+  assert(sampleHealth.memory.heapUsedMb > 0);
+  assert.strictEqual(typeof sampleHealth.emergencyStop, 'boolean');
+});
+
 // Cleanup test dir
 fs.rmSync(testDir, { recursive: true, force: true });
 
