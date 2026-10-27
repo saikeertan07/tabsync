@@ -23,6 +23,11 @@ class CanvasEngine {
     this.laserTrail = [];
 
     this.dpr = window.devicePixelRatio || 1;
+
+    // Offscreen background caching for 120Hz high-efficiency rendering
+    this.bgCanvas = (typeof document !== 'undefined' && document.createElement) ? document.createElement('canvas') : null;
+    this.bgDirty = true;
+
     this.setupResizeObserver();
     this.startLaserAnimationLoop();
   }
@@ -48,16 +53,34 @@ class CanvasEngine {
     this.canvas.style.width = `${this.width}px`;
     this.canvas.style.height = `${this.height}px`;
 
+    this.bgDirty = true;
     this.redrawAll();
   }
 
   setBackground(style) {
     this.backgroundStyle = style;
+    this.bgDirty = true;
     this.redrawAll();
   }
 
   drawBackground(targetCtx = this.ctx) {
-    const ctx = targetCtx;
+    // Utilize offscreen cached canvas buffer to prevent repetitive arc/stroke loops during pen moves
+    if (this.bgCanvas) {
+      if (this.bgDirty || this.bgCanvas.width !== this.canvas.width || this.bgCanvas.height !== this.canvas.height) {
+        this.bgCanvas.width = this.canvas.width;
+        this.bgCanvas.height = this.canvas.height;
+        const bCtx = this.bgCanvas.getContext('2d');
+        this.renderBackgroundToContext(bCtx);
+        this.bgDirty = false;
+      }
+      targetCtx.drawImage(this.bgCanvas, 0, 0);
+      return;
+    }
+
+    this.renderBackgroundToContext(targetCtx);
+  }
+
+  renderBackgroundToContext(ctx) {
     const w = this.canvas.width;
     const h = this.canvas.height;
     const dpr = this.dpr;
@@ -125,6 +148,24 @@ class CanvasEngine {
     }
 
     ctx.restore();
+  }
+
+  addPoint(stroke, pt) {
+    if (!stroke || !pt) return false;
+    if (!stroke.points || stroke.points.length === 0) {
+      stroke.points = [pt];
+      return true;
+    }
+    const last = stroke.points[stroke.points.length - 1];
+    // Decimate sub-pixel micro-jitter (< 1.5 pixels delta) to prevent curve bloat
+    const dx = (pt.x - last.x) * (this.width || 1000);
+    const dy = (pt.y - last.y) * (this.height || 1000);
+    const distSq = dx * dx + dy * dy;
+    if (distSq < 2.25) {
+      return false;
+    }
+    stroke.points.push(pt);
+    return true;
   }
 
   toNorm(clientX, clientY) {
