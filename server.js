@@ -77,6 +77,17 @@ let activeConnections = new Map(); // ws -> { role, deviceId, name, ip, connecte
 let macClients = new Set(); // internal widget & overlay clients on localhost
 let isEmergencyStopActive = false; // Emergency stop state flag
 
+// Operational Telemetry & Health Metrics
+const serverStartTime = Date.now();
+const serverMetrics = {
+  totalConnections: 0,
+  strokesProcessed: 0,
+  inputMovesProcessed: 0,
+  inputClicksProcessed: 0,
+  blockedInputsCount: 0,
+  emergencyStopsCount: 0
+};
+
 // Native Swift input controller for macOS mouse/digitizer automation
 let macInputProcess = null;
 const macInputPath = path.join(__dirname, 'mac-input');
@@ -276,6 +287,41 @@ app.get('/api/discovery', simpleRateLimit(120), (req, res) => {
   });
 });
 
+// Public Health & System Diagnostics Endpoint (rate-limited, zero secrets leaked)
+app.get('/api/health', simpleRateLimit(120), (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    status: 'healthy',
+    service: 'tabsync-studio',
+    version: '1.0.0',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024 * 100) / 100,
+      rssMb: Math.round(mem.rss / 1024 / 1024 * 100) / 100
+    },
+    activeClients: activeConnections.size,
+    emergencyStop: isEmergencyStopActive
+  });
+});
+
+// Authenticated Real-time Metrics & Operational Counters
+app.get('/api/metrics', simpleRateLimit(60), requireHostAuth, (req, res) => {
+  res.json({
+    service: 'tabsync-studio',
+    uptime: process.uptime(),
+    serverStartedAt: new Date(serverStartTime).toISOString(),
+    metrics: { ...serverMetrics },
+    state: {
+      activeConnections: activeConnections.size,
+      activeTablets: Array.from(activeConnections.values()).filter(c => c.isAuthenticated && c.role === 'tablet').length,
+      activeMacs: macClients.size,
+      drawingHistoryCount: drawingHistory.length,
+      isEmergencyStopActive
+    }
+  });
+});
+
 // Authenticated Host Status Endpoint
 app.get('/api/status', simpleRateLimit(120), requireHostAuth, async (req, res) => {
   const ips = getLocalIpAddresses();
@@ -439,6 +485,7 @@ let currentInputOwner = null;
 // WEBSOCKET SECURITY & EVENT ROUTING
 // -------------------------------------------------------------
 wss.on('connection', (ws, req) => {
+  serverMetrics.totalConnections++;
   const ip = req.socket.remoteAddress || 'unknown';
   const isLocalhost = isLoopbackAddress(ip);
 
@@ -646,6 +693,7 @@ wss.on('connection', (ws, req) => {
       case 'stroke_point':
       case 'stroke_end': {
         if (msg.type === 'stroke_end' && msg.stroke) {
+          serverMetrics.strokesProcessed++;
           drawingHistory.push(msg.stroke);
           redoHistory = []; // clear redo on new stroke
           if (drawingHistory.length > 800) {
@@ -700,9 +748,11 @@ wss.on('connection', (ws, req) => {
       // Virtual Graphics Tablet & Mouse Automation (Guarded by Emergency Stop state and Input Ownership)
       case 'input_move': {
         if (isEmergencyStopActive) {
+          serverMetrics.blockedInputsCount++;
           ws.send(JSON.stringify({ type: 'input_blocked', reason: 'Emergency Stop is active' }));
           break;
         }
+        serverMetrics.inputMovesProcessed++;
         if (typeof msg.x === 'number' && typeof msg.y === 'number') {
           const p = typeof msg.p === 'number' ? ` ${msg.p}` : '';
           sendToMacInput(`move ${msg.x} ${msg.y}${p}`);
@@ -712,13 +762,16 @@ wss.on('connection', (ws, req) => {
 
       case 'input_move_rel': {
         if (isEmergencyStopActive) {
+          serverMetrics.blockedInputsCount++;
           ws.send(JSON.stringify({ type: 'input_blocked', reason: 'Emergency Stop is active' }));
           break;
         }
         if (currentInputOwner && currentInputOwner !== ws) {
+          serverMetrics.blockedInputsCount++;
           // Reject movement collision while another client owns the active drag
           break;
         }
+        serverMetrics.inputMovesProcessed++;
         if (typeof msg.dx === 'number' && typeof msg.dy === 'number') {
           sendToMacInput(`move_rel ${msg.dx} ${msg.dy}`);
         }
@@ -726,11 +779,16 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'input_down': {
-        if (isEmergencyStopActive) break;
+        if (isEmergencyStopActive) {
+          serverMetrics.blockedInputsCount++;
+          break;
+        }
         if (currentInputOwner && currentInputOwner !== ws) {
+          serverMetrics.blockedInputsCount++;
           log.warn('Input', `Client ${clientMeta.deviceId} input_down rejected: another client holds active input`);
           break;
         }
+        serverMetrics.inputClicksProcessed++;
         currentInputOwner = ws;
         const p = typeof msg.p === 'number' ? ` ${msg.p}` : '';
         sendToMacInput(`down ${msg.button || 'left'}${p}`);
@@ -747,11 +805,16 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'input_click': {
-        if (isEmergencyStopActive) break;
+        if (isEmergencyStopActive) {
+          serverMetrics.blockedInputsCount++;
+          break;
+        }
         if (currentInputOwner && currentInputOwner !== ws) {
+          serverMetrics.blockedInputsCount++;
           // Collision prevention
           break;
         }
+        serverMetrics.inputClicksProcessed++;
         if (msg.button === 'right') {
           sendToMacInput('rclick');
         } else if (msg.button === 'middle') {
@@ -780,6 +843,7 @@ wss.on('connection', (ws, req) => {
       }
 
       case 'emergency_stop': {
+        serverMetrics.emergencyStopsCount++;
         isEmergencyStopActive = true;
         log.warn('Security', 'Emergency Stop received via WebSocket: halting all remote inputs');
         sendToMacInput('emergency_stop');
