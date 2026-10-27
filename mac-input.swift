@@ -19,6 +19,7 @@ var isEmergencyStopActive = false
 var lastX: CGFloat = screenWidth / 2
 var lastY: CGFloat = screenHeight / 2
 var lastPressure: Double = 0.5
+var totalEventsDispatched: UInt64 = 0
 
 // Stuck Input Protection state
 var activeHeldButtons: Set<String> = []
@@ -97,6 +98,12 @@ FileHandle.standardInput.readabilityHandler = { handle in
             let (curWidth, curHeight) = getMainScreenBounds()
             let trusted = checkAccessibility()
             print("INFO \(curWidth) \(curHeight) \(trusted ? 1 : 0) \(isEmergencyStopActive ? 1 : 0)")
+            fflush(stdout)
+
+        case "status":
+            let (curWidth, curHeight) = getMainScreenBounds()
+            let trusted = checkAccessibility()
+            print("STATUS width=\(curWidth) height=\(curHeight) trusted=\(trusted ? 1 : 0) emergency=\(isEmergencyStopActive ? 1 : 0) heldButtons=\(activeHeldButtons.count) events=\(totalEventsDispatched)")
             fflush(stdout)
             
         case "move":
@@ -291,5 +298,13 @@ FileHandle.standardInput.readabilityHandler = { handle in
 atexit {
     releaseAllInputs()
 }
+
+func handleTerminationSignal(_ sig: Int32) {
+    releaseAllInputs()
+    exit(sig)
+}
+
+signal(SIGINT, handleTerminationSignal)
+signal(SIGTERM, handleTerminationSignal)
 
 RunLoop.main.run()

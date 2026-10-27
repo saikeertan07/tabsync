@@ -136,7 +136,7 @@ function startMacInputProcess() {
   }
 }
 
-const ALLOWED_MAC_INPUT_COMMANDS = /^(move\s+[0-9.]+\s+[0-9.]+(\s+[0-9.]+)?|move_rel\s+-?[0-9.]+\s+-?[0-9.]+|down\s+(left|right|middle)(\s+[0-9.]+)?|up\s+(left|right|middle)|click(\s+(left|right|middle))?|rclick|scroll\s+-?[0-9]+\s+-?[0-9]+|type\s+[^\r\n]{1,256}|key\s+[0-9]+(\s+[a-z,]+)?|release_all|emergency_stop|resume_input|info)$/;
+const ALLOWED_MAC_INPUT_COMMANDS = /^(move\s+[0-9.]+\s+[0-9.]+(\s+[0-9.]+)?|move_rel\s+-?[0-9.]+\s+-?[0-9.]+|down\s+(left|right|middle)(\s+[0-9.]+)?|up\s+(left|right|middle)|click(\s+(left|right|middle))?|rclick|scroll\s+-?[0-9]+\s+-?[0-9]+|type\s+[^\r\n]{1,256}|key\s+[0-9]+(\s+[a-z,]+)?|release_all|emergency_stop|resume_input|info|status)$/;
 
 function sendToMacInput(cmd) {
   if (typeof cmd !== 'string' || !ALLOWED_MAC_INPUT_COMMANDS.test(cmd)) {
