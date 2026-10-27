@@ -122,6 +122,36 @@
     }, duration);
   }
 
+  // -------------------------------------------------------------
+  // TACTILE HAPTIC FEEDBACK ENGINE (S-Pen & Android Vibrator)
+  // -------------------------------------------------------------
+  function triggerHaptic(type = 'light') {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        switch (type) {
+          case 'light':
+            navigator.vibrate(15);
+            break;
+          case 'medium':
+            navigator.vibrate(30);
+            break;
+          case 'heavy':
+            navigator.vibrate(50);
+            break;
+          case 'success':
+            navigator.vibrate([20, 35, 20]);
+            break;
+          case 'warning':
+            navigator.vibrate([45, 60, 45]);
+            break;
+          default:
+            navigator.vibrate(20);
+            break;
+        }
+      } catch (e) {}
+    }
+  }
+
   function resize() {
     dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -563,6 +593,7 @@
   // -------------------------------------------------------------
   function setMode(mode, broadcast = true) {
     currentMode = mode;
+    triggerHaptic('light');
     [tabDraw, tabHighlighter, tabLaser, tabCursor, tabEraser].forEach(b => {
       if (b) b.classList.remove('active');
     });
@@ -623,16 +654,23 @@
     tabAiShape.addEventListener('click', () => {
       isAiShapeEnabled = !isAiShapeEnabled;
       tabAiShape.classList.toggle('active', isAiShapeEnabled);
+      triggerHaptic('light');
       showToast(isAiShapeEnabled ? '✨ AI Shape Recognition: ON' : '✨ AI Shape Recognition: OFF', 1800);
     });
   }
 
   document.querySelectorAll('.swatch').forEach(s => {
-    s.addEventListener('click', () => setColor(s.dataset.color));
+    s.addEventListener('click', () => {
+      triggerHaptic('light');
+      setColor(s.dataset.color);
+    });
   });
 
   document.querySelectorAll('.size-btn').forEach(b => {
-    b.addEventListener('click', () => setSize(b.dataset.size));
+    b.addEventListener('click', () => {
+      triggerHaptic('light');
+      setSize(b.dataset.size);
+    });
   });
 
   function performUndo() {
@@ -640,6 +678,7 @@
       redoStack.push(strokes.pop());
       if (redoStack.length > 200) redoStack.shift();
       redrawAll();
+      triggerHaptic('medium');
       sendWS({ type: 'undo' });
       return true;
     }
@@ -651,6 +690,7 @@
       strokes.push(redoStack.pop());
       if (strokes.length > 800) strokes.shift();
       redrawAll();
+      triggerHaptic('medium');
       sendWS({ type: 'redo' });
       return true;
     }
@@ -671,6 +711,7 @@
 
   tabClear.addEventListener('click', () => {
     if (confirm('Clear all drawings on Mac screen?')) {
+      triggerHaptic('heavy');
       strokes = [];
       redoStack = [];
       currentStroke = null;
@@ -681,6 +722,7 @@
 
   if (tabEmergencyStop) {
     tabEmergencyStop.addEventListener('click', () => {
+      triggerHaptic('warning');
       sendWS({ type: 'emergency_stop' });
       isDrawing = false;
       currentStroke = null;
@@ -775,6 +817,7 @@
       try {
         const aiResult = window.AIShapeRecognizer.recognize(currentStroke.points);
         if (aiResult && aiResult.matched) {
+          triggerHaptic('success');
           currentStroke.tool = aiResult.tool;
           currentStroke.points = aiResult.points;
           const shapeName = aiResult.shape.charAt(0).toUpperCase() + aiResult.shape.slice(1);
@@ -955,16 +998,19 @@
   // Virtual buttons
   tpBtnLeft.addEventListener('click', (e) => {
     e.stopPropagation();
+    triggerHaptic('light');
     sendWS({ type: 'input_click', button: 'left' });
   });
 
   tpBtnRight.addEventListener('click', (e) => {
     e.stopPropagation();
+    triggerHaptic('light');
     sendWS({ type: 'input_click', button: 'right' });
   });
 
   tpBtnDrag.addEventListener('click', (e) => {
     e.stopPropagation();
+    triggerHaptic('medium');
     isDragLocked = !isDragLocked;
     tpBtnDrag.classList.toggle('active', isDragLocked);
     if (isDragLocked) {
