@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -22,6 +23,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.net.wifi.WifiManager;
@@ -34,6 +36,7 @@ import org.json.JSONObject;
 public class MainActivity extends Activity implements View.OnClickListener {
     private WebView webView;
     private FrameLayout rootLayout;
+    private ScrollView connectDialogContainer;
     private LinearLayout connectDialog;
     private EditText ipInput;
     private EditText pinInput;
@@ -51,7 +54,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private static final String KEY_PINNED_FINGERPRINT = "pinned_fingerprint";
     private static final String KEY_HOST_ID = "pinned_host_id";
     private static final String KEY_HOST_NAME = "pinned_host_name";
-    private static final String DEFAULT_IP = "192.168.1.8";
+    private static final String DEFAULT_IP = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,11 +76,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
         ));
 
         setupConnectDialog(savedIp);
-        rootLayout.addView(connectDialog);
+        rootLayout.addView(connectDialogContainer);
 
         menuBtn = createFloatingMenuButton();
         FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(
-                dpToPx(40), dpToPx(40)
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                dpToPx(38)
         );
         btnParams.gravity = Gravity.TOP | Gravity.LEFT;
         btnParams.leftMargin = dpToPx(14);
@@ -142,16 +146,18 @@ public class MainActivity extends Activity implements View.OnClickListener {
             }
         }
 
-        // Standard launch: load saved host
-        if (fallbackIp != null && !fallbackIp.isEmpty()) {
+        // Standard launch: load saved host if previously configured
+        if (fallbackIp != null && !fallbackIp.trim().isEmpty()) {
             loadTabletUrl(fallbackIp, null, null, null, null, null);
+        } else {
+            // First run: keep connect dialog open for user input
+            showConnectDialog("Enter your Mac's IP (e.g. 192.168.1.x or 10.0.2.2 for emulator):");
         }
     }
 
     private void setupWebView() {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.parseColor("#080B12"));
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -173,17 +179,41 @@ public class MainActivity extends Activity implements View.OnClickListener {
     }
 
     public void onPageLoaded() {
-        hideSystemUI();
-        if (connectDialog != null) {
-            connectDialog.setVisibility(View.GONE);
-        }
+        runOnUiThread(() -> {
+            hideSystemUI();
+            if (connectDialogContainer != null) {
+                connectDialogContainer.setVisibility(View.GONE);
+            }
+            if (menuBtn != null) {
+                menuBtn.bringToFront();
+            }
+        });
     }
 
-    public void onPageLoadFailed(String url) {
-        showConnectDialog("Could not connect to Mac.\nEnsure TabSync Studio is open on your Mac and both devices are on the same Wi-Fi network.");
+    public void onPageLoadFailed(String url, String reason) {
+        runOnUiThread(() -> {
+            String msg = "Could not connect to Mac";
+            if (reason != null && !reason.isEmpty()) {
+                msg += ": " + reason;
+            }
+            msg += "\n\n1. Ensure TabSync Studio is running on your Mac.\n2. Ensure both devices are on the same Wi-Fi network.\n3. For BlueStacks / Emulators on the same Mac, use IP: 10.0.2.2";
+            showConnectDialog(msg);
+        });
     }
 
     private void setupConnectDialog(String initialIp) {
+        connectDialogContainer = new ScrollView(this);
+        connectDialogContainer.setFillViewport(true);
+        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        );
+        connectDialogContainer.setLayoutParams(scrollParams);
+
+        LinearLayout centeringLayout = new LinearLayout(this);
+        centeringLayout.setGravity(Gravity.CENTER);
+        centeringLayout.setPadding(dpToPx(16), dpToPx(30), dpToPx(16), dpToPx(30));
+
         connectDialog = new LinearLayout(this);
         connectDialog.setOrientation(LinearLayout.VERTICAL);
         connectDialog.setGravity(Gravity.CENTER);
@@ -213,8 +243,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         // IP input
         ipInput = new EditText(this);
-        ipInput.setText(initialIp);
-        ipInput.setHint("Mac IP (e.g. 192.168.1.8)");
+        ipInput.setText(initialIp != null ? initialIp : "");
+        ipInput.setHint("Mac IP (e.g. 192.168.1.3 or 10.0.2.2)");
         ipInput.setHintTextColor(Color.parseColor("#64748B"));
         ipInput.setTextColor(Color.WHITE);
         ipInput.setTextSize(14);
@@ -227,7 +257,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         inputBg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
         ipInput.setBackground(inputBg);
 
-        LinearLayout.LayoutParams ipParams = new LinearLayout.LayoutParams(dpToPx(280), dpToPx(44));
+        LinearLayout.LayoutParams ipParams = new LinearLayout.LayoutParams(dpToPx(290), dpToPx(44));
         ipParams.bottomMargin = dpToPx(10);
         connectDialog.addView(ipInput, ipParams);
 
@@ -241,8 +271,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
         pinInput.setSingleLine(true);
         pinInput.setBackground(inputBg);
 
-        LinearLayout.LayoutParams pinParams = new LinearLayout.LayoutParams(dpToPx(280), dpToPx(44));
-        pinParams.bottomMargin = dpToPx(18);
+        LinearLayout.LayoutParams pinParams = new LinearLayout.LayoutParams(dpToPx(290), dpToPx(44));
+        pinParams.bottomMargin = dpToPx(16);
         connectDialog.addView(pinInput, pinParams);
 
         discoveredHostBtn = new Button(this);
@@ -256,7 +286,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
         discoveredHostBtn.setBackground(discBg);
         discoveredHostBtn.setOnClickListener(this);
 
-        LinearLayout.LayoutParams discParams = new LinearLayout.LayoutParams(dpToPx(280), dpToPx(44));
+        LinearLayout.LayoutParams discParams = new LinearLayout.LayoutParams(dpToPx(290), dpToPx(44));
         discParams.bottomMargin = dpToPx(12);
         connectDialog.addView(discoveredHostBtn, discParams);
 
@@ -271,25 +301,34 @@ public class MainActivity extends Activity implements View.OnClickListener {
         connectBtn.setBackground(btnBg);
         connectBtn.setOnClickListener(this);
 
-        connectDialog.addView(connectBtn, new LinearLayout.LayoutParams(dpToPx(280), dpToPx(46)));
+        connectDialog.addView(connectBtn, new LinearLayout.LayoutParams(dpToPx(290), dpToPx(46)));
 
-        FrameLayout.LayoutParams dialogParams = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        dialogParams.gravity = Gravity.CENTER;
-        connectDialog.setLayoutParams(dialogParams);
+        TextView tipText = new TextView(this);
+        tipText.setText("💡 Tip: In BlueStacks or emulators on the same Mac, use 10.0.2.2 as the IP address.");
+        tipText.setTextSize(11);
+        tipText.setTextColor(Color.parseColor("#38BDF8"));
+        tipText.setGravity(Gravity.CENTER);
+        tipText.setPadding(0, dpToPx(14), 0, 0);
+        connectDialog.addView(tipText, new LinearLayout.LayoutParams(dpToPx(290), LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        centeringLayout.addView(connectDialog);
+        connectDialogContainer.addView(centeringLayout, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
     }
 
     private Button createFloatingMenuButton() {
         Button btn = new Button(this);
-        btn.setText("⚙️");
-        btn.setTextSize(16);
+        btn.setText("⚙️ Settings");
+        btn.setTextColor(Color.WHITE);
+        btn.setTextSize(12);
+        btn.setPadding(dpToPx(10), dpToPx(6), dpToPx(10), dpToPx(6));
 
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#800F172A"));
-        bg.setCornerRadius(dpToPx(20));
-        bg.setStroke(dpToPx(1), Color.parseColor("#33FFFFFF"));
+        bg.setColor(Color.parseColor("#CC0F172A"));
+        bg.setCornerRadius(dpToPx(16));
+        bg.setStroke(dpToPx(1), Color.parseColor("#475569"));
         btn.setBackground(bg);
         btn.setOnClickListener(this);
         return btn;
@@ -310,12 +349,17 @@ public class MainActivity extends Activity implements View.OnClickListener {
             if (!ip.isEmpty()) {
                 prefs.edit().putString(KEY_MAC_IP, ip).apply();
                 loadTabletUrl(ip, null, pin, null, null, null);
+            } else {
+                Toast.makeText(this, "Please enter your Mac's IP address", Toast.LENGTH_SHORT).show();
             }
         } else if (v == menuBtn) {
-            if (connectDialog.getVisibility() == View.VISIBLE) {
-                connectDialog.setVisibility(View.GONE);
-            } else {
-                connectDialog.setVisibility(View.VISIBLE);
+            if (connectDialogContainer != null) {
+                if (connectDialogContainer.getVisibility() == View.VISIBLE) {
+                    connectDialogContainer.setVisibility(View.GONE);
+                } else {
+                    connectDialogContainer.setVisibility(View.VISIBLE);
+                    connectDialogContainer.bringToFront();
+                }
             }
         }
     }
@@ -436,6 +480,11 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     private void loadTabletUrl(String ipOrHost, String token, String pin, String fp, String hostId, String hostName) {
         String formatted = ipOrHost.trim();
+        if (formatted.isEmpty()) {
+            showConnectDialog("Please enter your Mac's IP address.");
+            return;
+        }
+
         // Disallow insecure cleartext http:// and enforce strict https://
         if (formatted.startsWith("http://")) {
             formatted = formatted.substring(7);
@@ -481,8 +530,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
 
         String targetUrl = urlBuilder.toString();
-        statusText.setText("Connecting securely to Mac...");
-        Toast.makeText(this, "Connecting securely to Mac...", Toast.LENGTH_SHORT).show();
+        statusText.setText("Connecting to Mac (" + ipOrHost + ")...");
+        Toast.makeText(this, "Connecting to Mac...", Toast.LENGTH_SHORT).show();
         webView.loadUrl(targetUrl);
     }
 
@@ -518,9 +567,10 @@ public class MainActivity extends Activity implements View.OnClickListener {
         return cleanCertFp.equals(cleanPinned);
     }
 
-    public void onSslErrorRejected(SslError error) {
+    public void promptTrustCertificate(final SslErrorHandler handler, final SslError error) {
         runOnUiThread(() -> {
             if (error == null || error.getCertificate() == null) {
+                if (handler != null) handler.cancel();
                 showConnectDialog("TLS connection failed: Invalid certificate.");
                 return;
             }
@@ -535,15 +585,23 @@ public class MainActivity extends Activity implements View.OnClickListener {
                                 "\n\nPlease confirm this matches the fingerprint displayed on your Mac's TabSync Studio widget.")
                         .setPositiveButton("Trust & Connect", (dialog, which) -> {
                             prefs.edit().putString(KEY_PINNED_FINGERPRINT, certFp).apply();
-                            if (webView != null) webView.reload();
+                            if (handler != null) {
+                                handler.proceed();
+                            }
                         })
                         .setNegativeButton("Cancel", (dialog, which) -> {
+                            if (handler != null) {
+                                handler.cancel();
+                            }
                             showConnectDialog("Connection cancelled: Untrusted host certificate.");
                         })
                         .setCancelable(false)
                         .show();
             } else {
                 // Fingerprint mismatch alert: potential MITM or unexpected host replacement
+                if (handler != null) {
+                    handler.cancel();
+                }
                 new AlertDialog.Builder(this)
                         .setTitle("⚠️ Security Warning: Host Fingerprint Mismatch!")
                         .setMessage("The Mac certificate fingerprint changed!\n\nExpected:\n" + pinned +
@@ -561,16 +619,31 @@ public class MainActivity extends Activity implements View.OnClickListener {
     public boolean isAllowedHost(String host, int port) {
         if (host == null) return false;
         String saved = prefs.getString(KEY_MAC_IP, DEFAULT_IP);
-        if (saved == null) return false;
+        if (saved == null || saved.isEmpty()) {
+            return host.equalsIgnoreCase("localhost") || host.equalsIgnoreCase("127.0.0.1") || host.equalsIgnoreCase("10.0.2.2");
+        }
         String cleanSaved = saved.replace("https://", "").replace("http://", "");
         if (cleanSaved.contains("/")) cleanSaved = cleanSaved.substring(0, cleanSaved.indexOf('/'));
         String savedHost = cleanSaved.contains(":") ? cleanSaved.substring(0, cleanSaved.indexOf(':')) : cleanSaved;
-        return host.equalsIgnoreCase(savedHost) || host.equalsIgnoreCase("localhost") || host.equalsIgnoreCase("127.0.0.1");
+        return host.equalsIgnoreCase(savedHost)
+                || host.equalsIgnoreCase("localhost")
+                || host.equalsIgnoreCase("127.0.0.1")
+                || host.equalsIgnoreCase("10.0.2.2");
     }
 
     private void showConnectDialog(String msg) {
-        statusText.setText(msg);
-        connectDialog.setVisibility(View.VISIBLE);
+        runOnUiThread(() -> {
+            if (statusText != null && msg != null) {
+                statusText.setText(msg);
+            }
+            if (connectDialogContainer != null) {
+                connectDialogContainer.setVisibility(View.VISIBLE);
+                connectDialogContainer.bringToFront();
+            }
+            if (menuBtn != null) {
+                menuBtn.bringToFront();
+            }
+        });
     }
 
     public void hideSystemUI() {
@@ -598,12 +671,13 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
+        if (connectDialogContainer != null && connectDialogContainer.getVisibility() == View.VISIBLE) {
+            connectDialogContainer.setVisibility(View.GONE);
+        } else if (connectDialogContainer != null) {
+            connectDialogContainer.setVisibility(View.VISIBLE);
+            connectDialogContainer.bringToFront();
+        } else if (webView != null && webView.canGoBack()) {
             webView.goBack();
-        } else if (connectDialog != null && connectDialog.getVisibility() == View.VISIBLE) {
-            connectDialog.setVisibility(View.GONE);
-        } else if (connectDialog != null) {
-            connectDialog.setVisibility(View.VISIBLE);
         }
     }
 }
